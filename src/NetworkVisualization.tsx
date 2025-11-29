@@ -13,7 +13,7 @@ interface NetworkVisualizationProps {
 export function NetworkVisualization({ network, color, width, height, updateTrigger, isTraining }: NetworkVisualizationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [activations, setActivations] = useState<number[][]>([]);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | null>(null);
 
   // Simulate activations for activity visualization
   useEffect(() => {
@@ -24,7 +24,7 @@ export function NetworkVisualization({ network, color, width, height, updateTrig
 
     // Generate simulated activations that pulse through the network
     const generateActivations = () => {
-      const layers = [2, 16, 16, 1];
+      const layers = [2, 16, 1];
       const time = Date.now() / 1000;
       return layers.map((size, layerIdx) => 
         Array.from({ length: size }, (_, nodeIdx) => {
@@ -107,8 +107,8 @@ export function NetworkVisualization({ network, color, width, height, updateTrig
             
             // Weight matrix shape: [fromNodes, toNodes] - data is row-major
             // So data[fromIdx * toNodes + toIdx] gives weight from fromIdx to toIdx
-            const fromNodes = weightShape[0];
-            const toNodes = weightShape[1];
+            const fromNodes = weightShape[0] ?? fromLayer.length;
+            const toNodes = weightShape[1] ?? toLayer.length;
             
             // Collect all weights for this layer to find top connections
             const connectionWeights: Array<{fromIdx: number, toIdx: number, weight: number, absWeight: number}> = [];
@@ -123,11 +123,13 @@ export function NetworkVisualization({ network, color, width, height, updateTrig
             
             // Sort by absolute weight and only show top 30% of connections
             connectionWeights.sort((a, b) => b.absWeight - a.absWeight);
-            const topConnections = Math.max(
-              Math.ceil(connectionWeights.length * 0.3),
-              Math.min(fromLayer.length, toLayer.length) // At least show one connection per node
-            );
-            const threshold = connectionWeights[topConnections - 1]?.absWeight || 0;
+            const topConnections = connectionWeights.length
+              ? Math.max(
+                  Math.ceil(connectionWeights.length * 0.3),
+                  Math.min(fromLayer.length, toLayer.length) // At least show one connection per node
+                )
+              : 0;
+            const threshold = topConnections > 0 ? connectionWeights[topConnections - 1]?.absWeight || 0 : 0;
             
             // Parse hex color to RGB
             const r = parseInt(color.slice(1, 3), 16);
